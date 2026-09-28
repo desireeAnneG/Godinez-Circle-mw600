@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle — Friends</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarSlot"></div>
+
+  <main class="main">
+
+    <div class="main-head">
+      <div>
+        <h1 class="greeting" id="pageTitle" style="display:flex;align-items:center;gap:8px;">Friends</h1>
+        <p class="greeting-sub">Here are all the amazing people in your circle.</p>
+      </div>
+      <div class="search-box">
+        <span id="searchIcon"></span>
+        <input type="text" id="searchInput" placeholder="Search friends...">
+      </div>
+    </div>
+
+    <div id="directoryWrap"></div>
+
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  document.getElementById('sidebarSlot').outerHTML = renderSidebar('friends');
+  document.getElementById('searchIcon').innerHTML = ICONS.search;
+
+  let allFriends = [];
+
+  function entryCard(f){
+    const heart = f.relationship === 'Best Friend' ? `<div class="heart-badge">${ICONS.heart}</div>` : '';
+    const sub = [f.hobbies && f.hobbies[0], f.relationship].filter(Boolean).join(' \u2022 ');
+    return `
+      <div class="friend-card" data-id="${f.id}">
+        <div class="friend-avatar-wrap">
+          <img src="${avatarUrl(f.name)}" alt="">
+          ${heart}
+        </div>
+        <p class="friend-name">${escapeHtml(f.name)}</p>
+        <p class="friend-sub">${escapeHtml(sub)}</p>
+        <div class="friend-actions">
+          <button class="btn btn-ghost btn-sm" data-view="${f.id}">View</button>
+          <a class="btn btn-ghost btn-sm" href="friend-form.html?id=${f.id}">Edit</a>
+          <button class="btn btn-danger btn-sm" style="flex:0 0 auto;" data-delete="${f.id}" data-name="${escapeHtml(f.name)}" aria-label="Delete ${escapeHtml(f.name)}" title="Delete">${ICONS.trash}</button>
+        </div>
+      </div>`;
+  }
+
+  function renderList(list){
+    const wrap = document.getElementById('directoryWrap');
+    if(list.length === 0){
+      wrap.innerHTML = `<div class="empty">
+        <p class="empty-title">No friends found</p>
+        <p>Try a different search, or add someone new to your circle.</p>
+      </div>`;
+      return;
+    }
+    const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    wrap.innerHTML = `<div class="friends-grid">${sorted.map(entryCard).join('')}</div>`;
+  }
+
+  function openDetail(id){
+    const f = allFriends.find(x => String(x.id) === String(id));
+    if(!f) return;
+    const tags = (f.hobbies || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+    const overlay = document.createElement('div');
+    overlay.className = 'detail-overlay';
+    overlay.innerHTML = `
+      <div class="detail-card">
+        <button class="detail-close" id="detailClose">${ICONS.close}</button>
+        <img src="${avatarUrl(f.name)}" alt="">
+        <h3>${escapeHtml(f.name)}${f.nickname ? ` "${escapeHtml(f.nickname)}"` : ''}</h3>
+        <p class="detail-sub">${escapeHtml(f.relationship || 'Friend')} \u2022 friends since ${formatDate(f.joined)}</p>
+        <div class="detail-tags">${tags}</div>
+        ${f.birthday ? `<div class="detail-row"><strong>Birthday</strong>${formatDate(f.birthday)}</div>` : ''}
+        ${f.notes ? `<div class="detail-row"><strong>Notes</strong>${escapeHtml(f.notes)}</div>` : ''}
+        <div class="detail-actions">
+          <a class="btn btn-ghost btn-block" href="friend-form.html?id=${f.id}">Edit</a>
+          <button class="btn btn-danger btn-block" data-delete="${f.id}" data-name="${escapeHtml(f.name)}">Delete</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) overlay.remove(); });
+    document.getElementById('detailClose').addEventListener('click', () => overlay.remove());
+  }
+
+  async function refresh(){
+    document.getElementById('pageTitle').innerHTML = `${ICONS.users}<span style="margin-left:2px">Friends</span>`;
+    try{
+      allFriends = await getFriends();
+    } catch(err){
+      showToast(err.message);
+      document.getElementById('directoryWrap').innerHTML = `<div class="empty">
+        <p class="empty-title">Couldn't load your friends</p>
+        <p>${escapeHtml(err.message)}</p>
+      </div>`;
+      return;
+    }
+    const q = document.getElementById('searchInput').value.trim();
+    if(q) document.getElementById('searchInput').dispatchEvent(new Event('input'));
+    else renderList(allFriends);
+  }
+
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    if(!q){ renderList(allFriends); return; }
+    const filtered = allFriends.filter(f =>
+      f.name.toLowerCase().includes(q) ||
+      (f.nickname || '').toLowerCase().includes(q) ||
+      (f.relationship || '').toLowerCase().includes(q) ||
+      (f.hobbies || []).some(h => h.toLowerCase().includes(q))
+    );
+    renderList(filtered);
+  });
+
+  document.addEventListener('click', async (e) => {
+    const viewBtn = e.target.closest('[data-view]');
+    if(viewBtn){ openDetail(viewBtn.getAttribute('data-view')); return; }
+
+    const delBtn = e.target.closest('[data-delete]');
+    if(delBtn){
+      const id = delBtn.getAttribute('data-delete');
+      const name = delBtn.getAttribute('data-name');
+      if(!confirm(`Remove ${name} from your circle? This can't be undone.`)) return;
+      try{
+        await deleteFriend(id);
+        document.querySelector('.detail-overlay')?.remove();
+        showToast(`${name} was removed.`);
+        await refresh();
+      } catch(err){
+        showToast(err.message);
+      }
+    }
+  });
+
+  refresh();
+</script>
+</body>
+</html>

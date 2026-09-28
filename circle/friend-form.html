@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle — Add Friend</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarSlot"></div>
+
+  <main class="main">
+
+    <div class="main-head">
+      <div>
+        <h1 class="greeting" id="pageTitle" style="display:flex;align-items:center;gap:8px;">Add New Friend</h1>
+        <p class="greeting-sub" id="pageSub">Fill in the details to add a new friend to your circle.</p>
+      </div>
+    </div>
+
+    <div class="form-layout">
+      <form class="form-card" id="friendForm">
+        <div class="field">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" required placeholder="Enter full name">
+        </div>
+
+        <div class="field">
+          <label for="nickname">Nickname</label>
+          <input type="text" id="nickname" placeholder="Enter nickname">
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="birthday">Birthday</label>
+            <input type="date" id="birthday">
+          </div>
+          <div class="field">
+            <label for="relationship">Relationship</label>
+            <select id="relationship"></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="hobbies">Hobbies</label>
+          <input type="text" id="hobbies" placeholder="Enter hobbies (e.g. gaming, reading, cooking)">
+          <p class="field-hint">Separate each one with a comma.</p>
+        </div>
+
+        <div class="field">
+          <label for="notes">Notes</label>
+          <textarea id="notes" placeholder="Add a short note about your friend..."></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-block" id="submitBtn">Save Friend</button>
+          <a href="friends.html" class="btn btn-ghost">Cancel</a>
+        </div>
+      </form>
+
+      <div class="form-illustration">
+        <img id="illustrationAvatar" src="" alt="">
+        <h3>Every friend<br>makes your<br>circle bigger!</h3>
+        <p id="illustrationSub">Fill in a name to see their avatar appear here.</p>
+        <span class="heart">${ICONS.heart}</span>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  document.getElementById('sidebarSlot').outerHTML = renderSidebar('add');
+  document.querySelector('.form-illustration .heart').innerHTML = ICONS.heart;
+
+  const relSelect = document.getElementById('relationship');
+  relSelect.innerHTML = RELATIONSHIPS.map(r => `<option value="${r}">${r}</option>`).join('');
+
+  const editId = qs('id');
+  let existing = null;   // filled in by init() when we're editing
+
+  function setTitle(text, iconHtml){
+    document.getElementById('pageTitle').innerHTML = `${iconHtml}<span style="margin-left:2px">${text}</span>`;
+  }
+
+  function updateIllustration(){
+    const name = document.getElementById('name').value.trim();
+    document.getElementById('illustrationAvatar').src = avatarUrl(name || 'new-friend-preview');
+    document.getElementById('illustrationSub').textContent = name
+      ? `Here's a preview of ${name.split(' ')[0]}'s avatar.`
+      : 'Fill in a name to see their avatar appear here.';
+  }
+
+  async function init(){
+    setTitle('Add New Friend', ICONS.userPlus);
+
+    if(editId){
+      try{
+        existing = await getFriend(editId);
+      } catch(err){
+        showToast(err.message);
+      }
+
+      if(existing){
+        setTitle(`Edit ${existing.name.split(' ')[0]}`, ICONS.pencil);
+        document.getElementById('pageSub').textContent = 'Update their details below.';
+        document.getElementById('submitBtn').textContent = 'Save Changes';
+        document.title = `Circle — Edit ${existing.name}`;
+
+        document.getElementById('name').value = existing.name || '';
+        document.getElementById('nickname').value = existing.nickname || '';
+        document.getElementById('birthday').value = existing.birthday || '';
+        document.getElementById('relationship').value = existing.relationship || 'Friend';
+        document.getElementById('hobbies').value = (existing.hobbies || []).join(', ');
+        document.getElementById('notes').value = existing.notes || '';
+      } else {
+        document.getElementById('pageSub').textContent = "We couldn't find that friend — add them fresh below.";
+      }
+    }
+    updateIllustration();
+  }
+
+  document.getElementById('name').addEventListener('input', updateIllustration);
+
+  document.getElementById('friendForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    if(!name){
+      showToast('Give them a name first.');
+      return;
+    }
+    const data = {
+      name,
+      nickname: document.getElementById('nickname').value.trim(),
+      birthday: document.getElementById('birthday').value,
+      relationship: document.getElementById('relationship').value,
+      hobbies: parseTags(document.getElementById('hobbies').value),
+      notes: document.getElementById('notes').value.trim()
+    };
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    try{
+      if(existing) await updateFriend(existing.id, data);
+      else await addFriend(data);
+      window.location.href = 'friends.html';
+    } catch(err){
+      showToast(err.message);
+      btn.disabled = false;
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>

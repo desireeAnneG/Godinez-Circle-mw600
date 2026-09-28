@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle — Profile</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarSlot"></div>
+
+  <main class="main">
+
+    <div class="profile-top">
+      <div class="profile-card">
+        <div class="friend-avatar-wrap" style="width:92px;height:92px;margin:0 auto 14px;">
+          <img id="pAvatar" src="" alt="" style="border:3px solid var(--purple-soft);">
+          <button type="button" id="pPhotoBtn" class="heart-badge" style="width:28px;height:28px;cursor:pointer;border:2px solid #fff;color:var(--purple-dark);" aria-label="Change profile picture"></button>
+        </div>
+        <input type="file" id="pPhotoInput" accept="image/*" style="display:none;">
+        <button type="button" id="pPhotoRemove" style="display:none;background:none;border:none;color:var(--muted);font-size:11.5px;text-decoration:underline;cursor:pointer;margin:-8px 0 10px;">Remove photo</button>
+        <h2><span id="pName"></span><button type="button" id="pEditBtn" aria-label="Edit profile"></button></h2>
+        <p class="profile-meta" id="pTagline"></p>
+        <p class="profile-meta" id="pLocation"></p>
+        <p class="profile-meta" id="pJoined"></p>
+        <div class="social-row" id="pSocial"></div>
+      </div>
+
+      <div class="about-card">
+        <h3>About Me</h3>
+        <p id="pBio"></p>
+      </div>
+    </div>
+
+    <div class="profile-grid">
+      <div class="mini-card">
+        <h4>My Favorites</h4>
+        <div id="pFavorites"></div>
+      </div>
+      <div class="mini-card">
+        <h4>Hobbies</h4>
+        <div id="pHobbies"></div>
+      </div>
+      <div class="mini-card">
+        <h4>My Friends <span id="pFriendCount" style="color:var(--muted);font-weight:600;"></span></h4>
+        <div class="mini-friends-row" id="pFriendsRow"></div>
+        <a href="friends.html" class="section-link" id="pViewAll">View all</a>
+      </div>
+    </div>
+
+    <div class="edit-section-head">
+      <h2 class="greeting" style="font-size:20px;" id="editHeading">Edit your profile</h2>
+      <p>This is what your friends see about you across Circle.</p>
+    </div>
+
+    <form class="form-card" id="profileForm" style="max-width:640px;">
+      <div class="field-row">
+        <div class="field">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" required>
+        </div>
+        <div class="field">
+          <label for="tagline">Tagline</label>
+          <input type="text" id="tagline" placeholder="e.g. BSIT Student">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="location">Location</label>
+          <input type="text" id="location" placeholder="e.g. Cebu, Philippines">
+        </div>
+        <div class="field">
+          <label for="joined">Joined</label>
+          <input type="date" id="joined">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="bio">About Me</label>
+        <textarea id="bio" placeholder="A couple of sentences about you."></textarea>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="favColor">Favorite Color</label>
+          <select id="favColor"></select>
+        </div>
+        <div class="field">
+          <label for="favFood">Favorite Food</label>
+          <input type="text" id="favFood" placeholder="e.g. Cupcakes">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="favQuote">Favorite Quote</label>
+        <input type="text" id="favQuote" placeholder="e.g. Collect memories, not things.">
+      </div>
+
+      <div class="field">
+        <label for="hobbies">Hobbies</label>
+        <input type="text" id="hobbies" placeholder="comma separated, e.g. drawing, gaming, reading">
+        <p class="field-hint">Separate each one with a comma.</p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="instagram">Instagram handle</label>
+          <input type="text" id="instagram" placeholder="optional">
+        </div>
+        <div class="field">
+          <label for="twitter">Twitter / X handle</label>
+          <input type="text" id="twitter" placeholder="optional">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="text" id="email" placeholder="optional">
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn">Save Profile</button>
+        <a href="index.html" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  document.getElementById('sidebarSlot').outerHTML = renderSidebar('profile');
+  document.getElementById('pEditBtn').innerHTML = ICONS.pencil;
+  document.getElementById('pPhotoBtn').innerHTML = ICONS.camera;
+  document.getElementById('pViewAll').innerHTML = `View all ${ICONS.arrowRight}`;
+
+  document.getElementById('pPhotoBtn').addEventListener('click', () => {
+    document.getElementById('pPhotoInput').click();
+  });
+
+  document.getElementById('pPhotoInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    try{
+      const dataUrl = await fileToResizedDataUrl(file);
+      const profile = await getProfile();
+      profile.photo = dataUrl;
+      await saveProfile(profile);
+      await renderPreview();
+      showToast('Profile picture updated.');
+    } catch(err){
+      showToast(err.message || 'Could not use that image.');
+    }
+    e.target.value = '';
+  });
+
+  document.getElementById('pPhotoRemove').addEventListener('click', async () => {
+    try{
+      const profile = await getProfile();
+      profile.photo = '';
+      await saveProfile(profile);
+      await renderPreview();
+      showToast('Photo removed — back to your generated avatar.');
+    } catch(err){
+      showToast(err.message);
+    }
+  });
+
+  const favColorSelect = document.getElementById('favColor');
+  favColorSelect.innerHTML = FAV_COLORS.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+
+  function colorHex(name){
+    return (FAV_COLORS.find(c => c.name === name) || FAV_COLORS[0]).hex;
+  }
+
+  async function renderPreview(){
+    let profile, friends;
+    try{
+      [profile, friends] = await Promise.all([getProfile(), getFriends()]);
+    } catch(err){
+      showToast(err.message);
+      return;
+    }
+
+    document.getElementById('pAvatar').src = profileAvatarSrc(profile);
+    document.getElementById('pPhotoRemove').style.display = profile.photo ? 'inline' : 'none';
+    document.getElementById('pName').textContent = profile.name;
+    document.getElementById('pTagline').textContent = profile.tagline || '';
+    document.getElementById('pLocation').innerHTML = profile.location ? `${ICONS.location}${escapeHtml(profile.location)}` : '';
+    document.getElementById('pJoined').innerHTML = profile.joined ? `${ICONS.calendar}Joined ${formatDate(profile.joined)}` : '';
+    document.getElementById('pBio').textContent = profile.bio || 'Nothing here yet — add a bio below.';
+
+    const socials = [];
+    if(profile.social.instagram) socials.push(['instagram', ICONS.instagram]);
+    if(profile.social.twitter) socials.push(['twitter', ICONS.message]);
+    if(profile.social.email) socials.push(['email', ICONS.mail]);
+    document.getElementById('pSocial').innerHTML = socials.length
+      ? socials.map(([, icon]) => `<span class="social-icon">${icon}</span>`).join('')
+      : `<span class="social-icon">${ICONS.instagram}</span><span class="social-icon">${ICONS.message}</span><span class="social-icon">${ICONS.mail}</span>`;
+
+    document.getElementById('pFavorites').innerHTML = `
+      <div class="fav-item">
+        <div class="fav-label">Favorite Color</div>
+        <div class="fav-value"><span class="fav-swatch" style="background:${colorHex(profile.favColor)}"></span>${escapeHtml(profile.favColor || '\u2014')}</div>
+      </div>
+      <div class="fav-item">
+        <div class="fav-label">Favorite Food</div>
+        <div class="fav-value">${escapeHtml(profile.favFood || '\u2014')}</div>
+      </div>
+      <div class="fav-item">
+        <div class="fav-label">Favorite Quote</div>
+        <div class="fav-quote">${profile.favQuote ? '\u201C' + escapeHtml(profile.favQuote) + '\u201D' : '\u2014'}</div>
+      </div>`;
+
+    const hobbies = profile.hobbies || [];
+    document.getElementById('pHobbies').innerHTML = hobbies.length
+      ? hobbies.map(h => `<div class="hobby-item">${hobbyIcon(h)}${escapeHtml(h)}</div>`).join('')
+      : `<p class="mini-card-note">No hobbies added yet.</p>`;
+
+    document.getElementById('pFriendCount').textContent = `(${friends.length})`;
+    document.getElementById('pFriendsRow').innerHTML = friends.length
+      ? friends.slice(0, 6).map(f => `<img class="mini-friend-avatar" src="${avatarUrl(f.name)}" alt="${escapeHtml(f.name)}" title="${escapeHtml(f.name)}">`).join('')
+      : `<p class="mini-card-note">Add friends to see them here.</p>`;
+  }
+
+  async function loadForm(){
+    let profile;
+    try{
+      profile = await getProfile();
+    } catch(err){
+      showToast(err.message);
+      return;
+    }
+    document.getElementById('name').value = profile.name || '';
+    document.getElementById('tagline').value = profile.tagline || '';
+    document.getElementById('location').value = profile.location || '';
+    document.getElementById('joined').value = profile.joined || '';
+    document.getElementById('bio').value = profile.bio || '';
+    document.getElementById('favColor').value = profile.favColor || 'Purple';
+    document.getElementById('favFood').value = profile.favFood || '';
+    document.getElementById('favQuote').value = profile.favQuote || '';
+    document.getElementById('hobbies').value = (profile.hobbies || []).join(', ');
+    document.getElementById('instagram').value = profile.social.instagram || '';
+    document.getElementById('twitter').value = profile.social.twitter || '';
+    document.getElementById('email').value = profile.social.email || '';
+  }
+
+  document.getElementById('pEditBtn').addEventListener('click', () => {
+    document.getElementById('editHeading').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('name').focus();
+  });
+
+  document.getElementById('profileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    if(!name){
+      showToast('Add your name first.');
+      return;
+    }
+    let current;
+    try{
+      current = await getProfile();   // keep the existing photo
+      await saveProfile({
+      photo: current.photo,
+      name,
+      tagline: document.getElementById('tagline').value.trim(),
+      location: document.getElementById('location').value.trim(),
+      joined: document.getElementById('joined').value,
+      bio: document.getElementById('bio').value.trim(),
+      favColor: document.getElementById('favColor').value,
+      favFood: document.getElementById('favFood').value.trim(),
+      favQuote: document.getElementById('favQuote').value.trim(),
+      hobbies: parseTags(document.getElementById('hobbies').value),
+      social: {
+        instagram: document.getElementById('instagram').value.trim(),
+        twitter: document.getElementById('twitter').value.trim(),
+        email: document.getElementById('email').value.trim()
+      }
+      });
+    } catch(err){
+      showToast(err.message);
+      return;
+    }
+    showToast('Your profile was updated.');
+    renderPreview();
+  });
+
+  loadForm();
+  renderPreview();
+</script>
+</body>
+</html>

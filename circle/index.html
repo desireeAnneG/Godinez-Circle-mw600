@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle — Dashboard</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarSlot"></div>
+
+  <main class="main">
+
+    <div class="main-head">
+      <div>
+        <h1 class="greeting" id="greeting">Hello! 👋</h1>
+        <p class="greeting-sub">Welcome back! Here's what's happening in your circle.</p>
+      </div>
+      <a href="profile.html" class="profile-chip" id="profileChip"></a>
+    </div>
+
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-icon purple" id="statTotalIcon"></div>
+        <div>
+          <div class="stat-num" id="statTotal">0</div>
+          <div class="stat-label">Total Friends</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon pink" id="statBestIcon"></div>
+        <div>
+          <div class="stat-num" id="statBest">0</div>
+          <div class="stat-label">Best Friends</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2 class="section-title">Recently Added Friends</h2>
+      <a href="friends.html" class="section-link">View all</a>
+    </div>
+    <div class="friends-grid" id="recentDirectory" style="margin-bottom:26px;"></div>
+
+    <div class="promo-banner">
+      <p>Add a new friend to<br>grow your circle!</p>
+      <a href="friend-form.html" class="btn" id="addFriendBtn">Add New Friend</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  document.getElementById('sidebarSlot').outerHTML = renderSidebar('home');
+  document.getElementById('statTotalIcon').innerHTML = ICONS.users;
+  document.getElementById('statBestIcon').innerHTML = ICONS.heart;
+  document.getElementById('addFriendBtn').innerHTML = ICONS.userPlus.replace('viewBox','style="width:16px;height:16px"viewBox') + 'Add New Friend';
+
+  function entryCard(f){
+    const heart = f.relationship === 'Best Friend' ? `<div class="heart-badge">${ICONS.heart}</div>` : '';
+    const sub = [f.hobbies && f.hobbies[0], f.relationship].filter(Boolean).join(' \u2022 ');
+    return `
+      <div class="friend-card">
+        <div class="friend-avatar-wrap">
+          <img src="${avatarUrl(f.name)}" alt="">
+          ${heart}
+        </div>
+        <p class="friend-name">${escapeHtml(f.name)}</p>
+        <p class="friend-sub">${escapeHtml(sub)}</p>
+      </div>`;
+  }
+
+  async function render(){
+    let friends, profile;
+    try{
+      [friends, profile] = await Promise.all([getFriends(), getProfile()]);
+    } catch(err){
+      showToast(err.message);
+      document.getElementById('recentDirectory').innerHTML = `<div class="empty" style="grid-column:1/-1;">
+        <p class="empty-title">Couldn't load your circle</p>
+        <p>${escapeHtml(err.message)}</p>
+      </div>`;
+      return;
+    }
+
+    document.getElementById('greeting').textContent = `Hello, ${profile.name.split(' ')[0]}! \uD83D\uDC4B`;
+    document.getElementById('statTotal').textContent = friends.length;
+    document.getElementById('statBest').textContent = friends.filter(f => f.relationship === 'Best Friend').length;
+
+    document.getElementById('profileChip').innerHTML = `
+      <img src="${profileAvatarSrc(profile)}" alt="">
+      <span>${escapeHtml(profile.name.split(' ')[0])}</span>
+      ${ICONS.chevronDown}`;
+
+    const recent = [...friends].sort((a, b) => (b.joined || '').localeCompare(a.joined || '')).slice(0, 3);
+    const dir = document.getElementById('recentDirectory');
+    if(recent.length === 0){
+      dir.outerHTML = `<div class="empty" style="margin-bottom:26px;">
+        <p class="empty-title">No friends yet</p>
+        <p>Add your first friend to start building your circle.</p>
+      </div>`;
+    } else {
+      dir.innerHTML = recent.map(entryCard).join('');
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>
